@@ -14,5 +14,7 @@ there are not many large cases (eg outbreaks) most cases are small.
 
 ![Lag Corr](plots/lag_analysis.png)
 
+![Lag Corr](plots/histogram_range_heatmap.png)
+
 ![Lag Corr](plots/rolling_analysis.png)
 
