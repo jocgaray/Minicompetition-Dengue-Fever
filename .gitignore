@@ -1,0 +1,74 @@
+# Virtual Environments
+venv/
+.venv/
+env/
+ENV/
+ds_env/
+.conda/
+.uv/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*/.ipynb_checkpoints/*
+
+# Data files (consider using Git LFS for large files)
+*.csv
+*.json
+*.xlsx
+*.pkl
+*.h5
+data/raw/
+data/processed/
+*.parquet
+
+# Model files
+models/
+*.model
+*.joblib
+
+# IDE and Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Environment variables
+.env
+.env.local
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
