@@ -90,7 +90,7 @@ class DengueAnalysisPipeline:
         return self
 
     def analyze_seasonality(
-        self, save_plot=False, save_path="outputs/plots/seasonality_2axis.png"
+        self, save_plot=False, save_path="plots/analyze_seasonality.png"
     ):
 
         import os
@@ -159,7 +159,7 @@ class DengueAnalysisPipeline:
         # -----------------------------
         # SAVE
         # -----------------------------
-        if save_plot:
+        if savePlotfile:
             os.makedirs(os.path.dirname(save_path), exist_ok=True)
 
             plt.savefig(save_path, dpi=300, bbox_inches="tight")
