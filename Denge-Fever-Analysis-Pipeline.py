@@ -1,3 +1,4 @@
+import os
 from dataclasses import dataclass
 
 import matplotlib.pyplot as plt
@@ -8,22 +9,46 @@ import seaborn as sns
 savePlotfile = True
 
 
-@dataclass
-class DengueAnalysisPipeline:
-    features_path: str
-    labels_path: str
+class DataManager:
+    def __init__(self, features_path, labels_path):
+        self.features_path = features_path
+        self.labels_path = labels_path
 
-    def load_data(self):
+    def load(self):
 
         features = pd.read_csv(self.features_path)
         labels = pd.read_csv(self.labels_path)
 
-        self.df = features.merge(labels, on=["city", "year", "weekofyear"])
+        df = features.merge(labels, on=["city", "year", "weekofyear"])
 
-        print("Data loaded:")
-        print(self.df.shape)
+        self.df = df
 
         return self
+
+    def split_by_city(self):
+
+        self.df_sj = self.df[self.df["city"] == "sj"].copy()
+        self.df_iq = self.df[self.df["city"] == "iq"].copy()
+
+        return self
+
+    def get_city(self, city):
+        city = city.lower()
+
+        if city == "sj":
+            return self.df_sj.copy(), "sj"
+        elif city == "iq":
+            return self.df_iq.copy(), "iq"
+        else:
+            raise ValueError("Unknown city")
+
+
+@dataclass
+class DengueAnalysisPipeline:
+    def __init__(self, df, city=None):
+        self.city = city
+        self.df = df.copy()
+        self.results = {}
 
     def create_datetime(self):
 
@@ -34,6 +59,11 @@ class DengueAnalysisPipeline:
         self.df = self.df.sort_values(["city", "date"])
 
         return self
+
+    def savePlot(self, plt, plotname):
+        save_path = f"plots_{self.city}/{plotname}.png"
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+        plt.savefig(save_path, dpi=300, bbox_inches="tight")
 
     def validate_data(self):
 
@@ -53,7 +83,7 @@ class DengueAnalysisPipeline:
         import numpy as np
         import pandas as pd
 
-        df = self.df.copy()
+        df = self.df
 
         report = {}
 
@@ -94,7 +124,7 @@ class DengueAnalysisPipeline:
         import pandas as pd
         import seaborn as sns
 
-        df = self.df.copy()
+        df = self.df
         numeric_df = df.select_dtypes(include=np.number)
 
         heatmap_data = []
@@ -114,9 +144,8 @@ class DengueAnalysisPipeline:
         plt.ylabel("Features")
 
         if savePlotfile:
-            plt.savefig(
-                "plots/histogram_range_heatmap.png", dpi=300, bbox_inches="tight"
-            )
+            self.savePlot(plt, "histogram_range_heatmap")
+
             plt.close()
         else:
             plt.show()
@@ -135,114 +164,127 @@ class DengueAnalysisPipeline:
         plt.title("Distribution of Dengue Cases")
 
         if savePlotfile:
-            plt.savefig("plots/characterize_target.png", dpi=300, bbox_inches="tight")
+            self.savePlot(plt, "characterize_target")
             plt.close()
         else:
             plt.show()
 
         return self
 
-    def visualize_time_series(self):
+    def visualize_time_series(self, save_plot=False):
+
+        df = self.df
 
         plt.figure(figsize=(15, 5))
 
-        for city in self.df["city"].unique():
-            subset = self.df[self.df["city"] == city]
+        plt.plot(df["date"], df["total_cases"], label="total_cases")
 
-            plt.plot(subset["date"], subset["total_cases"], label=city)
-
-        plt.legend()
-        plt.title("Dengue Cases Over Time")
+        plt.title(
+            f"Dengue Cases Over Time ({df['city'].iloc[0] if 'city' in df.columns else 'city'})"
+        )
         plt.xlabel("Date")
         plt.ylabel("Cases")
+        plt.legend()
 
         if savePlotfile:
-            plt.savefig("plots/visualize_time_series.png", dpi=300, bbox_inches="tight")
+            self.savePlot(plt, "visualize_time_series")
             plt.close()
         else:
             plt.show()
+            plt.close()
 
         return self
 
-    def analyze_seasonality(
-        self, save_plot=False, save_path="plots/analyze_seasonality.png"
-    ):
-
-        import os
-
-        import matplotlib.pyplot as plt
+    def analyze_seasonality(self, save_plot=False):
 
         df = self.df.copy()
+
+        if "city" in df.columns:
+            city_name = df["city"].iloc[0]
+        else:
+            city_name = "unknown"
 
         # -----------------------------
         # Aggregate seasonality
         # -----------------------------
         seasonal = (
-            df.groupby(["city", "weekofyear"])["total_cases"].mean().reset_index()
+            df.groupby("weekofyear")["total_cases"]
+            .mean()
+            .reset_index()
+            .sort_values("weekofyear")
         )
 
-        seasonal = seasonal.sort_values(["city", "weekofyear"])
-
-        # split cities
-        sj = seasonal[seasonal["city"] == "sj"]
-        iq = seasonal[seasonal["city"] == "iq"]
-
         # -----------------------------
-        # SCALE IQ so it's visible
+        # Rolling trend
         # -----------------------------
-        iq_scaled = iq.copy()
-        iq_scaled["total_cases"] = (
-            iq_scaled["total_cases"] / iq_scaled["total_cases"].max()
-        ) * sj["total_cases"].max()
+        seasonal["trend"] = seasonal["total_cases"].rolling(4, min_periods=1).mean()
 
         # -----------------------------
         # PLOT
         # -----------------------------
-        fig, ax1 = plt.subplots(figsize=(14, 5))
+        fig, ax = plt.subplots(figsize=(14, 5))
 
-        # Axis 1: SJ + IQ (scaled)
-        ax1.plot(sj["weekofyear"], sj["total_cases"], label="SJ cases", color="tab:red")
-        ax1.plot(
-            iq_scaled["weekofyear"],
-            iq_scaled["total_cases"],
-            label="IQ (scaled)",
-            color="tab:orange",
+        ax.plot(
+            seasonal["weekofyear"],
+            seasonal["total_cases"],
+            label="Mean cases",
+            color="tab:blue",
         )
 
-        ax1.set_xlabel("Week of Year")
-        ax1.set_ylabel("Cases (scaled comparison)")
-        ax1.legend(loc="upper left")
-
-        # -----------------------------
-        # Axis 2 (optional: smooth trend)
-        # -----------------------------
-        ax2 = ax1.twinx()
-
-        ax2.plot(
-            sj["weekofyear"],
-            sj["total_cases"].rolling(4).mean(),
+        ax.plot(
+            seasonal["weekofyear"],
+            seasonal["trend"],
             linestyle="dashed",
-            color="darkred",
-            alpha=0.6,
-            label="SJ trend",
+            label="4-week trend",
+            color="black",
+            alpha=0.7,
         )
 
-        ax2.set_ylabel("Smoothed Trend (SJ)")
-
-        plt.title("Seasonal Dengue Pattern (SJ vs IQ + Trend)")
+        ax.set_xlabel("Week of Year")
+        ax.set_ylabel("Cases")
+        ax.set_title(f"Seasonality Pattern ({city_name})")
+        ax.legend()
 
         # -----------------------------
         # SAVE
         # -----------------------------
+        #
+
         if savePlotfile:
-            os.makedirs(os.path.dirname(save_path), exist_ok=True)
-
-            plt.savefig(save_path, dpi=300, bbox_inches="tight")
+            self.savePlot(plt, "analyze_seasonality")
             plt.close()
-
         else:
             plt.show()
             plt.close()
+
+        return self
+
+    def feature_correlation_analysis(self):
+
+        import matplotlib.pyplot as plt
+        import numpy as np
+        import seaborn as sns
+
+        df = self.df.copy()
+
+        numeric_df = df.select_dtypes(include=np.number)
+
+        # REMOVE target
+        if "total_cases" in numeric_df.columns:
+            numeric_df = numeric_df.drop(columns=["total_cases"])
+
+        corr = numeric_df.corr()
+
+        plt.figure(figsize=(12, 10))
+        sns.heatmap(corr, cmap="coolwarm", center=0)
+
+        plt.title("Feature Correlation Matrix (No Target Leakage)")
+
+        if savePlotfile:
+            self.savePlot(plt, "feature_correlation_analysis")
+            plt.close()
+        else:
+            plt.show()
 
         return self
 
@@ -263,7 +305,7 @@ class DengueAnalysisPipeline:
         plt.title("Correlation With Dengue Cases")
 
         if savePlotfile:
-            plt.savefig("plots/correlation_analysis.png", dpi=300, bbox_inches="tight")
+            self.savePlot(plt, "correlation_analysis")
             plt.close()
         else:
             plt.show()
@@ -277,7 +319,7 @@ class DengueAnalysisPipeline:
         import pandas as pd
         import seaborn as sns
 
-        df = self.df.copy()
+        df = self.df
 
         # IMPORTANT: enforce correct time order
         df = df.sort_values(["city", "year", "weekofyear"])
@@ -316,9 +358,7 @@ class DengueAnalysisPipeline:
         plt.ylabel("Feature")
 
         if savePlotfile:
-            plt.savefig(
-                "plots/lagged_correlation_analysis.png", dpi=300, bbox_inches="tight"
-            )
+            self.savePlot(plt, "lagged_correlation_analysis.png")
             plt.close()
         else:
             plt.show()
@@ -338,7 +378,7 @@ class DengueAnalysisPipeline:
         plt.title(f"{lag}-Week Lag Relationship")
 
         if savePlotfile:
-            plt.savefig("plots/lag_analysis.png", dpi=300, bbox_inches="tight")
+            self.savePlot(plt, "lag_analysis.png")
             plt.close()
         else:
             plt.show()
@@ -363,7 +403,7 @@ class DengueAnalysisPipeline:
         plt.title("Cases vs Rolling Temperature")
 
         if savePlotfile:
-            plt.savefig("plots/rolling_analysis.png", dpi=300, bbox_inches="tight")
+            self.savePlot(plt, "rolling_analysis.png")
             plt.close()
         else:
             plt.show()
@@ -371,21 +411,27 @@ class DengueAnalysisPipeline:
         return self
 
 
-pipeline = (
-    DengueAnalysisPipeline(
-        features_path="Data/dengue_features_train.csv",
-        labels_path="Data/dengue_labels_train.csv",
-    )
-    .load_data()
+dm = DataManager(
+    features_path="Data/dengue_features_train.csv",
+    labels_path="Data/dengue_labels_train.csv",
+)
+
+dm.load().split_by_city()
+
+df, city = dm.get_city("iq")
+
+analysis_pipeline = (
+    DengueAnalysisPipeline(df, city)
     .create_datetime()
     .validate_data()
     .histogram_range_heatmap()
-    # .data_quality_check()
-    # .characterize_target()
-    # .visualize_time_series()
-    # .analyze_seasonality()
-    # .correlation_analysis()
-    # .lagged_correlation_analysis()
-    # .lag_analysis()
-    # .rolling_analysis()*/
+    .data_quality_check()
+    .characterize_target()
+    .visualize_time_series()
+    .analyze_seasonality()
+    .feature_correlation_analysis()
+    .correlation_analysis()
+    .lagged_correlation_analysis()
+    .lag_analysis()
+    .rolling_analysis()
 )
