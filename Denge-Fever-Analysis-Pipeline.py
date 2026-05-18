@@ -89,30 +89,85 @@ class DengueAnalysisPipeline:
 
         return self
 
-    def analyze_seasonality(self):
+    def analyze_seasonality(
+        self, save_plot=False, save_path="outputs/plots/seasonality_2axis.png"
+    ):
 
+        import os
+
+        import matplotlib.pyplot as plt
+
+        df = self.df.copy()
+
+        # -----------------------------
+        # Aggregate seasonality
+        # -----------------------------
         seasonal = (
-            self.df.groupby(["city", "weekofyear"])["total_cases"].mean().reset_index()
+            df.groupby(["city", "weekofyear"])["total_cases"].mean().reset_index()
         )
 
-        plt.figure(figsize=(14, 5))
+        seasonal = seasonal.sort_values(["city", "weekofyear"])
 
-        for city in seasonal["city"].unique():
-            subset = seasonal[seasonal["city"] == city]
+        # split cities
+        sj = seasonal[seasonal["city"] == "sj"]
+        iq = seasonal[seasonal["city"] == "iq"]
 
-            plt.plot(subset["weekofyear"], subset["total_cases"], label=city)
+        # -----------------------------
+        # SCALE IQ so it's visible
+        # -----------------------------
+        iq_scaled = iq.copy()
+        iq_scaled["total_cases"] = (
+            iq_scaled["total_cases"] / iq_scaled["total_cases"].max()
+        ) * sj["total_cases"].max()
 
-        plt.legend()
+        # -----------------------------
+        # PLOT
+        # -----------------------------
+        fig, ax1 = plt.subplots(figsize=(14, 5))
 
-        plt.title("Seasonal Dengue Patterns")
-        plt.xlabel("Week of Year")
-        plt.ylabel("Average Cases")
+        # Axis 1: SJ + IQ (scaled)
+        ax1.plot(sj["weekofyear"], sj["total_cases"], label="SJ cases", color="tab:red")
+        ax1.plot(
+            iq_scaled["weekofyear"],
+            iq_scaled["total_cases"],
+            label="IQ (scaled)",
+            color="tab:orange",
+        )
 
-        if savePlotfile:
-            plt.savefig("plots/analyze_seasonality.png", dpi=300, bbox_inches="tight")
+        ax1.set_xlabel("Week of Year")
+        ax1.set_ylabel("Cases (scaled comparison)")
+        ax1.legend(loc="upper left")
+
+        # -----------------------------
+        # Axis 2 (optional: smooth trend)
+        # -----------------------------
+        ax2 = ax1.twinx()
+
+        ax2.plot(
+            sj["weekofyear"],
+            sj["total_cases"].rolling(4).mean(),
+            linestyle="dashed",
+            color="darkred",
+            alpha=0.6,
+            label="SJ trend",
+        )
+
+        ax2.set_ylabel("Smoothed Trend (SJ)")
+
+        plt.title("Seasonal Dengue Pattern (SJ vs IQ + Trend)")
+
+        # -----------------------------
+        # SAVE
+        # -----------------------------
+        if save_plot:
+            os.makedirs(os.path.dirname(save_path), exist_ok=True)
+
+            plt.savefig(save_path, dpi=300, bbox_inches="tight")
             plt.close()
+
         else:
             plt.show()
+            plt.close()
 
         return self
 
