@@ -221,15 +221,16 @@ class DengueAnalysisPipeline:
 
         city_df["temp_roll_4"] = city_df["station_avg_temp_c"].rolling(4).mean()
 
-        plt.figure(figsize=(14, 5))
+        fig, ax1 = plt.subplots(figsize=(14, 5))
 
-        plt.plot(city_df["date"], city_df["temp_roll_4"], label="Rolling Temp")
+        ax1.plot(city_df["date"], city_df["total_cases"], color="tab:red")
+        ax1.set_ylabel("Cases", color="tab:red")
 
-        plt.plot(city_df["date"], city_df["total_cases"], label="Cases")
+        ax2 = ax1.twinx()
+        ax2.plot(city_df["date"], city_df["temp_roll_4"], color="tab:blue")
+        ax2.set_ylabel("Rolling Temp (°C)", color="tab:blue")
 
-        plt.legend()
-
-        plt.title("Rolling Temperature vs Cases")
+        plt.title("Cases vs Rolling Temperature")
 
         if savePlotfile:
             plt.savefig("plots/rolling_analysis.png", dpi=300, bbox_inches="tight")
