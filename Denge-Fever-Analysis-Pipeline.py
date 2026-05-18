@@ -48,6 +48,81 @@ class DengueAnalysisPipeline:
 
         return self
 
+    def data_quality_check(self):
+
+        import numpy as np
+        import pandas as pd
+
+        df = self.df.copy()
+
+        report = {}
+
+        # -----------------------------
+        # 1. Missing values
+        # -----------------------------
+        report["missing"] = df.isna().sum().sort_values(ascending=False)
+
+        # -----------------------------
+        # 2. Detect non-numeric junk in numeric columns
+        # -----------------------------
+        numeric_cols = df.select_dtypes(include=np.number).columns
+
+        bad_cols = []
+
+        for col in numeric_cols:
+            # try coercion check (safe way to detect hidden strings)
+            coerced = pd.to_numeric(df[col], errors="coerce")
+
+            if coerced.isna().sum() > df[col].isna().sum():
+                bad_cols.append(col)
+
+        report["potential_string_issues"] = bad_cols
+
+        # -----------------------------
+        # 3. Object columns overview
+        # -----------------------------
+        report["object_columns"] = df.select_dtypes(include="object").columns.tolist()
+
+        self.quality_report = report
+
+        return self
+
+    def histogram_range_heatmap(self, bins=50):
+
+        import matplotlib.pyplot as plt
+        import numpy as np
+        import pandas as pd
+        import seaborn as sns
+
+        df = self.df.copy()
+        numeric_df = df.select_dtypes(include=np.number)
+
+        heatmap_data = []
+
+        for col in numeric_df.columns:
+            counts, bin_edges = np.histogram(numeric_df[col].dropna(), bins=bins)
+
+            heatmap_data.append(counts)
+
+        heatmap_df = pd.DataFrame(heatmap_data, index=numeric_df.columns)
+
+        plt.figure(figsize=(14, 8))
+        sns.heatmap(heatmap_df, cmap="magma")
+
+        plt.title("Histogram Distribution Heatmap")
+        plt.xlabel("Bins")
+        plt.ylabel("Features")
+
+        if savePlotfile:
+            plt.savefig(
+                "plots/histogram_range_heatmap.png", dpi=300, bbox_inches="tight"
+            )
+            plt.close()
+        else:
+            plt.show()
+
+        return self
+
     def characterize_target(self):
 
         print("\nTarget statistics:")
@@ -304,11 +379,13 @@ pipeline = (
     .load_data()
     .create_datetime()
     .validate_data()
-    .characterize_target()
-    .visualize_time_series()
-    .analyze_seasonality()
-    .correlation_analysis()
-    .lagged_correlation_analysis()
-    .lag_analysis()
-    .rolling_analysis()
+    .histogram_range_heatmap()
+    # .data_quality_check()
+    # .characterize_target()
+    # .visualize_time_series()
+    # .analyze_seasonality()
+    # .correlation_analysis()
+    # .lagged_correlation_analysis()
+    # .lag_analysis()
+    # .rolling_analysis()*/
 )
