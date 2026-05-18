@@ -5,6 +5,8 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 
+savePlotfile = True
+
 
 @dataclass
 class DengueAnalysisPipeline:
@@ -56,7 +58,12 @@ class DengueAnalysisPipeline:
         sns.histplot(self.df["total_cases"], bins=50, kde=True)
 
         plt.title("Distribution of Dengue Cases")
-        plt.show()
+
+        if savePlotfile:
+            plt.savefig("plots/characterize_target.png", dpi=300, bbox_inches="tight")
+            plt.close()
+        else:
+            plt.show()
 
         return self
 
@@ -74,7 +81,11 @@ class DengueAnalysisPipeline:
         plt.xlabel("Date")
         plt.ylabel("Cases")
 
-        plt.show()
+        if savePlotfile:
+            plt.savefig("plots/visualize_time_series.png", dpi=300, bbox_inches="tight")
+            plt.close()
+        else:
+            plt.show()
 
         return self
 
@@ -97,7 +108,11 @@ class DengueAnalysisPipeline:
         plt.xlabel("Week of Year")
         plt.ylabel("Average Cases")
 
-        plt.show()
+        if savePlotfile:
+            plt.savefig("plots/analyze_seasonality.png", dpi=300, bbox_inches="tight")
+            plt.close()
+        else:
+            plt.show()
 
         return self
 
@@ -117,7 +132,66 @@ class DengueAnalysisPipeline:
 
         plt.title("Correlation With Dengue Cases")
 
-        plt.show()
+        if savePlotfile:
+            plt.savefig("plots/correlation_analysis.png", dpi=300, bbox_inches="tight")
+            plt.close()
+        else:
+            plt.show()
+
+        return self
+
+    def lagged_correlation_analysis(self, target="total_cases", max_lag=12):
+
+        import matplotlib.pyplot as plt
+        import numpy as np
+        import pandas as pd
+        import seaborn as sns
+
+        df = self.df.copy()
+
+        # IMPORTANT: enforce correct time order
+        df = df.sort_values(["city", "year", "weekofyear"])
+
+        numeric_cols = df.select_dtypes(include=np.number).columns
+        numeric_cols = [c for c in numeric_cols if c != target]
+
+        results = []
+
+        for col in numeric_cols:
+            for lag in range(max_lag + 1):
+                shifted = df.groupby("city")[col].shift(lag)
+
+                valid = pd.concat([shifted, df[target]], axis=1).dropna()
+
+                if len(valid) < 10:
+                    corr = np.nan
+                else:
+                    corr = valid.iloc[:, 0].corr(valid.iloc[:, 1])
+
+                results.append({"feature": col, "lag": lag, "correlation": corr})
+
+        res_df = pd.DataFrame(results)
+
+        # -------------------------
+        # PLOT (this was missing!)
+        # -------------------------
+
+        pivot = res_df.pivot(index="feature", columns="lag", values="correlation")
+
+        plt.figure(figsize=(14, 8))
+        sns.heatmap(pivot, cmap="coolwarm", center=0)
+
+        plt.title("Lagged Correlation with Dengue Cases")
+        plt.xlabel("Lag (weeks)")
+        plt.ylabel("Feature")
+
+        if savePlotfile:
+            plt.savefig(
+                "plots/lagged_correlation_analysis.png", dpi=300, bbox_inches="tight"
+            )
+            plt.close()
+        else:
+            plt.show()
 
         return self
 
@@ -133,7 +207,11 @@ class DengueAnalysisPipeline:
 
         plt.title(f"{lag}-Week Lag Relationship")
 
-        plt.show()
+        if savePlotfile:
+            plt.savefig("plots/lag_analysis.png", dpi=300, bbox_inches="tight")
+            plt.close()
+        else:
+            plt.show()
 
         return self
 
@@ -153,14 +231,19 @@ class DengueAnalysisPipeline:
 
         plt.title("Rolling Temperature vs Cases")
 
-        plt.show()
+        if savePlotfile:
+            plt.savefig("plots/rolling_analysis.png", dpi=300, bbox_inches="tight")
+            plt.close()
+        else:
+            plt.show()
 
         return self
 
 
 pipeline = (
     DengueAnalysisPipeline(
-        features_path="dengue_features_train.csv", labels_path="dengue_labels_train.csv"
+        features_path="Data/dengue_features_train.csv",
+        labels_path="Data/dengue_labels_train.csv",
     )
     .load_data()
     .create_datetime()
@@ -169,6 +252,7 @@ pipeline = (
     .visualize_time_series()
     .analyze_seasonality()
     .correlation_analysis()
+    .lagged_correlation_analysis()
     .lag_analysis()
     .rolling_analysis()
 )
