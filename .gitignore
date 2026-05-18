@@ -25,6 +25,7 @@ parts/
 sdist/
 var/
 wheels/
+backup/
 
 # Jupyter Notebook
 .ipynb_checkpoints
