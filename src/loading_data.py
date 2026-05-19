@@ -1,6 +1,5 @@
 import pandas as pd
 
-
 class DataLoader:
 
     def __init__(self, features_path: str, labels_path: str):

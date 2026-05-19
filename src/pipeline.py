@@ -5,6 +5,8 @@ from src.features import FeatureEngineer
 from src.training import ModelTrainer
 from src.testing import ModelTester
 from src.visualization import Visualizer
+from src.load_test_data import TestLoader
+import pandas as pd
 
 class DenguePipeline:
 
