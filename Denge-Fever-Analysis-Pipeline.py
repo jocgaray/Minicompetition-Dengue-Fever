@@ -56,15 +56,23 @@ class CleanDataPipeline:
         self.raw_df = None
 
     def create_datetime(self):
-        # Check if week_start_date exists instead of building manually
-        if "week_start_date" in self.df.columns:
-            self.df["date"] = pd.to_datetime(self.df["week_start_date"])
-        else:
-            self.df["date"] = pd.to_datetime(
-                self.df["year"].astype(str) + "-01-01"
-            ) + pd.to_timedelta((self.df["weekofyear"] - 1) * 7, unit="D")
-
-        self.df = self.df.sort_values(["city", "date"])
+    
+        self.df["date"] = pd.to_datetime(
+            self.df["year"].astype(str) + "-01-01"
+        ) + pd.to_timedelta(
+            (self.df["weekofyear"] - 1) * 7,
+            unit="D"
+        )
+    
+        # cyclical encoding
+        self.df["week_sin"] = np.sin(
+            2 * np.pi * self.df["weekofyear"] / 52
+        )
+    
+        self.df["week_cos"] = np.cos(
+            2 * np.pi * self.df["weekofyear"] / 52
+        )
+    
         return self
 
     def validate_data(self):
