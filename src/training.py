@@ -4,6 +4,12 @@ from sklearn.model_selection import train_test_split
 
 class ModelTrainer:
 
+    def features_target_split(self, df, target="total_cases"):
+        X = df.drop(columns=[target, "date"])
+        y = df[target]
+        X = X.select_dtypes(include=["number"])
+        return X,y
+
     def split_data(self, df, target="total_cases"):
 
         X = df.drop(columns=[target, "date"])
