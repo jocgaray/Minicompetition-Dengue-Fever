@@ -1,6 +1,9 @@
-def main():
-    print("Hello from minicompetition-dengue-fever!")
+from src.pipeline import DenguePipeline
 
 
-if __name__ == "__main__":
-    main()
+pipeline = DenguePipeline(
+    features_path="data/raw/dengue_features_train.csv",
+    labels_path="data/raw/dengue_labels_train.csv"
+)
+
+pipeline.run()
