@@ -1,6 +1,14 @@
+from src.loading_data import DataLoader
+from src.exploration import DataExplorer
+from src.cleaning import DataCleaner
+from src.features import FeatureEngineer
+from src.training import ModelTrainer
+from src.testing import ModelTester
+from src.visualization import Visualizer
+
 class DenguePipeline:
 
-    def __init__(self, features_path, labels_path):
+    def __init__(self, features_path, labels_path, test_features_path):
 
         self.loader = DataLoader(features_path, labels_path)
         self.explorer = DataExplorer()
@@ -9,6 +17,7 @@ class DenguePipeline:
         self.visualizer = Visualizer()
         self.trainer = ModelTrainer()
         self.tester = ModelTester()
+        self.test_loader = TestLoader(test_features_path)
 
     def run(self):
 
@@ -33,14 +42,20 @@ class DenguePipeline:
 
         self.visualizer.plot_time_series(df)
 
-        X_train, X_test, y_train, y_test = (
-            self.trainer.split_data(df)
-        )
+        X_train,y_train = self.trainer.features_target_split(df, target="total_cases")
+
+       # X_train, X_test, y_train, y_test = (
+       #     self.trainer.split_data(df)
+       # )
 
         model = self.trainer.train(X_train, y_train)
 
-        self.tester.evaluate(labels_path
-            model,
-            X_test,
-            y_test
-        )
+        X_test=self.test_loader.load()
+
+        self.tester.evaluate(model,X_test)
+
+        #self.tester.evaluate(
+        #    model,
+        #    X_test,
+        #    y_test
+        #)
